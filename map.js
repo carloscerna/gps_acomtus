@@ -178,6 +178,21 @@ document.getElementById('btnVerHorarios').addEventListener('click', function() {
     modalHorarios.show();
 });
 
+/**
+ * Centra el mapa suavemente en una coordenada específica.
+ * @param {Array} latlng - Un array [latitud, longitud]
+ */
+function centrarMapaEnBus(latlng) {
+    // Obtenemos el zoom actual, pero nos aseguramos de que al menos sea 16
+    const zoomDeseado = Math.max(map.getZoom(), 16); 
+
+    // map.setView(latlng, zoomDeseado); // Opción 1: Salto brusco
+    
+    // Opción 2: Vuelo suave y animado
+    map.flyTo(latlng, zoomDeseado, {
+        duration: 1.5 // Duración de la animación en segundos
+    });
+}
 
 // -----------------------------------------------------------------
 // ----- ¡NUEVAS FUNCIONES DE ALERTA DE BOOTSTRAP! -----
@@ -238,35 +253,89 @@ function formatTime12(time24) {
 /**
  * Función para actualizar la posición de los buses en el mapa
  */
+
 async function actualizarPosicionBuses() {
     try {
         const response = await fetch('api/get_ubicaciones_en_vivo.php');
+        
+        // Verificamos que la respuesta sea válida
+        if (!response.ok) {
+            console.warn("La API respondió con error:", response.status);
+            return;
+        }
+
         const buses = await response.json();
 
-        // Crear un Set de buses que SÍ están en el mapa
+        // --- Referencias HTML ---
+        const cardBusesEnVivo = document.getElementById('buses-en-vivo-card');
+        const listaBusesEnVivo = document.getElementById('lista-buses-en-vivo');
+        
+        if (listaBusesEnVivo) listaBusesEnVivo.innerHTML = "";
+        
+        if (buses.length === 0) {
+            if (cardBusesEnVivo) cardBusesEnVivo.style.display = 'none';
+        } else {
+            if (cardBusesEnVivo) cardBusesEnVivo.style.display = 'block';
+        }
+
         const busesActualizados = new Set();
 
         buses.forEach(bus => {
-            const id = bus.ruta_id;
-            const newPos = [parseFloat(bus.latitud), parseFloat(bus.longitud)];
+            // Convertir a números seguros
+            const id = parseInt(bus.id_transporte);
+            const lat = parseFloat(bus.latitud);
+            const lng = parseFloat(bus.longitud);
+            const newPos = [lat, lng];
+            
             busesActualizados.add(id);
 
-            // ¿El bus ya está en el mapa?
+            // --- Depuración en consola (Solo para ver si llega) ---
+            // console.log(`Procesando Bus ID: ${id} en [${lat}, ${lng}]`);
+
+            // Manejo de valores nulos (para que no diga "null")
+            const nombreRuta = bus.nombre_ruta || "Ruta desconocida";
+            const nombreUnidad = bus.nombre_unidad || `Unidad ${bus.numero_equipo}`;
+            const numeroEquipo = bus.numero_equipo || "?";
+
+            // --- ICONO HTML ---
+            const iconHTML = L.divIcon({
+                className: 'icono-bus-personalizado',
+                html: `<div class="bus-marker">${numeroEquipo}</div>`,
+                iconSize: [40, 40],
+                iconAnchor: [20, 20] // Centrado
+            });
+
+            // Lógica de Crear o Mover
             if (busesEnMapa[id]) {
-                // Sí -> solo moverlo
+                // Mover existente
                 busesEnMapa[id].setLatLng(newPos);
+                busesEnMapa[id].setIcon(iconHTML);
+                // Actualizar contenido del popup
+                busesEnMapa[id].setPopupContent(`<b>${nombreRuta}</b><br>${nombreUnidad}`);
             } else {
-                // No -> crearlo
-                busesEnMapa[id] = L.marker(newPos, { icon: busIcon })
+                // Crear nuevo
+                busesEnMapa[id] = L.marker(newPos, { icon: iconHTML })
                     .addTo(map)
-                    .bindPopup(`<b>${bus.descripcion}</b>`);
+                    .bindPopup(`<b>${nombreRuta}</b><br>${nombreUnidad}`);
+                
+                console.log(`¡Nuevo bus añadido al mapa! ID: ${id}`);
+            }
+
+            // --- Añadir a la lista lateral ---
+            if (listaBusesEnVivo) {
+                const listItem = document.createElement('li');
+                listItem.className = 'list-group-item list-group-item-action';
+                listItem.innerHTML = `<strong>Unidad ${numeroEquipo}</strong> <small class="text-muted">(${nombreRuta})</small>`;
+                listItem.style.cursor = 'pointer';
+                listItem.onclick = function() { centrarMapaEnBus(newPos); };
+                listaBusesEnVivo.appendChild(listItem);
             }
         });
         
-        // Limpieza: Eliminar buses del mapa que ya no están en la lista (offline)
+        // Limpieza de buses viejos
         for (const id in busesEnMapa) {
             if (!busesActualizados.has(parseInt(id))) {
-                map.removeLayer(busesEnMapa[id]);
+                if(map) map.removeLayer(busesEnMapa[id]);
                 delete busesEnMapa[id];
             }
         }
@@ -275,7 +344,6 @@ async function actualizarPosicionBuses() {
         console.error("Error al actualizar buses en vivo:", error);
     }
 }
-
 // --- ¡INICIAR EL SONDEO (POLLING)! ---
 // Llama a la función 'actualizarPosicionBuses' cada 10 segundos
 setInterval(actualizarPosicionBuses, 10000); // 10000 milisegundos = 10 segundos

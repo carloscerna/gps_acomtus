@@ -28,6 +28,40 @@
         .form-select-lg {
             font-size: 1.15rem;
         }
+
+      /* ESTO ES CRÍTICO PARA QUE SE VEA EL BUS */
+    .icono-bus-personalizado {
+        background: none;
+        border: none;
+    }
+
+    .bus-marker {
+        background-color: #0d6efd; /* Color Azul */
+        color: white;
+        border: 2px solid white;
+        border-radius: 50%; /* Redondo */
+        width: 40px;       /* Ancho obligatorio */
+        height: 40px;      /* Alto obligatorio */
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: bold;
+        font-size: 14px;
+        box-shadow: 0 3px 6px rgba(0,0,0,0.4);
+        z-index: 1000; /* Para asegurar que quede encima */
+    }
+
+/* El triangulito de abajo (opcional, para que parezca pin de mapa) */
+.bus-marker::after {
+    content: '';
+    position: absolute;
+    bottom: -5px;
+    left: 50%;
+    transform: translateX(-50%);
+    border-width: 6px 6px 0;
+    border-style: solid;
+    border-color: #0d6efd transparent transparent transparent;
+}
     </style>
 </head>
 <body class="bg-light">
@@ -52,6 +86,14 @@
 
                     </div>
                 </div>
+
+            <div class="card shadow-sm mb-3" id="buses-en-vivo-card" style="display: none;">
+                <div class="card-header bg-primary text-white">
+                    <strong>🚌 Buses en Vivo</strong>
+                </div>
+                <ul class="list-group list-group-flush" id="lista-buses-en-vivo">
+                    </ul>
+            </div>
 
                 <div id="alert-container"></div>
                 <div id="mapa"></div>
