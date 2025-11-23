@@ -1,153 +1,253 @@
-/*
- * admin.js (ACTUALIZADO CON CÁLCULO DE DISTANCIA)
- */
+// admin.js - Lógica para el Editor de Trazados
 
-// 1. Inicializar el mapa
-const map = L.map('mapa-admin').setView([13.7000, -89.2200], 13);
-
-// 2. Añadir la capa base del mapa
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    maxZoom: 19,
-    attribution: '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-}).addTo(map);
-
-// 3. Capa para almacenar los dibujos
-const drawnItems = new L.FeatureGroup().addTo(map);
-
-// 4. Inicializar el Control de Dibujo
-const drawControl = new L.Control.Draw({
-    edit: false,
-    draw: {
-        polyline: true,
-        polygon: false,
-        rectangle: false,
-        circle: false,
-        marker: false,
-        circlemarker: false
-    }
-});
-map.addControl(drawControl);
-
-// 5. Cargar las rutas en el <select>
 document.addEventListener('DOMContentLoaded', function() {
-    cargarRutasAdmin();
-});
+// --- 0. CONFIGURACIÓN: UBICACIÓN POR DEFECTO (EMPRESA) ---
+    // ¡CAMBIA ESTOS VALORES POR LOS DE TU EMPRESA!
+    const COORD_EMPRESA_LAT = 13.977492366594602; // Latitud ejemplo
+    const COORD_EMPRESA_LNG = -89.58093094962483; // Longitud ejemplo
+    const ZOOM_INICIAL = 14; // Un zoom más cercano para ver la terminal
 
-function cargarRutasAdmin() {
-    fetch('api/get_rutas.php')
-        .then(response => response.json())
-        .then(rutas => {
-            const selector = document.getElementById('selectorRutaAdmin');
-            selector.innerHTML = '<option value="0" disabled selected>-- Elige una ruta para editar --</option>'; 
-            rutas.forEach(ruta => {
-                const opcion = document.createElement('option');
-                opcion.value = ruta.id_ruta;
-                opcion.textContent = ruta.descripcion;
-                selector.appendChild(opcion);
-            });
-        })
-        .catch(error => {
-            mostrarAlertaAdmin('Error al cargar la lista de rutas.', 'danger');
-        });
-}
+    // --- 1. Inicializar el Mapa ---
+    // Usamos las variables que acabamos de crear
+    const map = L.map('mapa-admin').setView([COORD_EMPRESA_LAT, COORD_EMPRESA_LNG], ZOOM_INICIAL);
 
-// 6. Evento 'draw:created' (MODIFICADO)
-map.on('draw:created', function (e) {
-    const layer = e.layer;
-    drawnItems.addLayer(layer);
-
-    const selector = document.getElementById('selectorRutaAdmin');
-    const rutaId = selector.value;
-
-    if (rutaId === "0") {
-        mostrarAlertaAdmin("¡Error! Por favor, selecciona una ruta del menú ANTES de dibujar.", 'danger');
-        drawnItems.removeLayer(layer);
-        return;
-    }
-
-    // --- ¡NUEVO! CÁLCULO DE DISTANCIA ---
-    const latLngs = layer.getLatLngs(); // Obtener los puntos dibujados
-    let totalDistance = 0;
-
-    // Recorrer los puntos y sumar la distancia entre ellos
-    // Leaflet map.distance() devuelve la distancia en METROS
-    for (let i = 0; i < latLngs.length - 1; i++) {
-        totalDistance += map.distance(latLngs[i], latLngs[i + 1]);
-    }
-    
-    // Convertir a kilómetros y redondear a 2 decimales
-    const totalKm = parseFloat((totalDistance / 1000).toFixed(2));
-    
-    // ------------------------------------
-
-    // Formatear coordenadas (igual que antes)
-    const coordenadasFormateadas = latLngs.map(latlng => {
-        return [
-            parseFloat(latlng.lat.toFixed(7)), 
-            parseFloat(latlng.lng.toFixed(7))
-        ];
+// --- ¡NUEVO! MARCADOR DE LA EMPRESA (Fijo) ---
+    const iconoEmpresaAdmin = L.icon({
+        iconUrl: 'img/logo_acomtus.png', // <--- ¡Verifica la ruta!
+        iconSize:     [32, 32], // Quizás un poco más pequeño para el admin
+        iconAnchor:   [16, 32], 
+        popupAnchor:  [0, -32]
     });
 
-    // ¡MODIFICADO! Enviar el nuevo dato 'totalKm'
-    guardarRutaEnBaseDatos(rutaId, coordenadasFormateadas, layer, totalKm);
-});
+    // Este marcador NO se añade a 'drawnItems' porque no queremos que se pueda editar/borrar
+    L.marker([COORD_EMPRESA_LAT, COORD_EMPRESA_LNG], {icon: iconoEmpresaAdmin})
+        .addTo(map)
+        .bindPopup("<b>Base Acomtus</b>");
+    // ---------------------------------------------
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 19,
+        attribution: '© OpenStreetMap'
+    }).addTo(map);
 
 
-/**
- * Envía los datos al backend (MODIFICADO)
- * @param {string} id - El id_ruta
- * @param {Array} coordenadas - El array de [lat, lng]
- * @param {L.Layer} layer - La capa de Leaflet
- * @param {number} distancia - ¡NUEVO! La distancia calculada en KM
- */
-async function guardarRutaEnBaseDatos(id, coordenadas, layer, distancia) {
-    
-    // ¡MODIFICADO! Mostrar la distancia en la alerta
-    mostrarAlertaAdmin(`Guardando ruta... (Distancia calculada: ${distancia} km)`, 'info');
+    // --- 2. Configurar Leaflet.draw (Herramientas de Dibujo) ---
+    const drawnItems = new L.FeatureGroup();
+    map.addLayer(drawnItems);
 
-    // ¡MODIFICADO! Añadir la distancia al objeto que se envía
-    const datosParaEnviar = {
-        ruta_id: parseInt(id),
-        coordenadas: coordenadas,
-        distancia_km: distancia // <-- ¡NUEVO DATO!
-    };
+    const drawControl = new L.Control.Draw({
+        draw: {
+            polyline: {
+                shapeOptions: { color: '#0d6efd', weight: 5 },
+                metric: true
+            },
+            polygon: false, circle: false, rectangle: false, marker: false, circlemarker: false
+        },
+        edit: {
+            featureGroup: drawnItems,
+            remove: true
+        }
+    });
+    map.addControl(drawControl);
 
-    try {
-        const respuesta = await fetch('api/guardar_trazado.php', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(datosParaEnviar)
-        });
 
-        const resultado = await respuesta.json();
+    // --- 3. Variables Globales ---
+    const selectorRuta = document.getElementById('selectorRutaAdmin');
+    let rutaSeleccionadaId = null;
 
-        if (resultado.success) {
-            mostrarAlertaAdmin(resultado.message, 'success');
-            setTimeout(() => drawnItems.removeLayer(layer), 2000);
+
+    // --- 4. Inicialización ---
+    cargarListadoRutas();
+
+
+    // --- 5. Event Listeners ---
+
+    // A) Cambio de ruta
+    selectorRuta.addEventListener('change', function(e) {
+        rutaSeleccionadaId = e.target.value;
+        if (rutaSeleccionadaId && rutaSeleccionadaId != "0") {
+            cargarTrazadoExistente(rutaSeleccionadaId);
         } else {
-            throw new Error(resultado.error || 'Error desconocido del servidor.');
+            drawnItems.clearLayers();
+        }
+    });
+
+    // B) Dibujo creado
+    map.on(L.Draw.Event.CREATED, async function (event) {
+        const layer = event.layer;
+        
+        if (!rutaSeleccionadaId || rutaSeleccionadaId == "0") {
+            mostrarAlerta("Por favor, selecciona una ruta primero antes de dibujar.", "warning");
+            return;
         }
 
-    } catch (error) {
-        console.error('Error en fetch:', error);
-        mostrarAlertaAdmin('¡Error grave! No se pudo guardar la ruta.\n' + error.message, 'danger');
-        drawnItems.removeLayer(layer);
+        if (event.layerType !== 'polyline') {
+             mostrarAlerta("Solo se permite dibujar líneas.", "warning");
+             return;
+        }
+
+        drawnItems.addLayer(layer);
+
+        const latlngs = layer.getLatLngs().map(coord => [coord.lat, coord.lng]);
+
+        if (latlngs.length < 2) {
+             mostrarAlerta("El trazado debe tener al menos dos puntos.", "warning");
+             drawnItems.clearLayers();
+             return;
+        }
+
+        await guardarTrazadoEnBD(rutaSeleccionadaId, latlngs);
+    });
+
+
+    // C) Trazado borrado
+    map.on(L.Draw.Event.DELETED, async function (event) {
+        if (!rutaSeleccionadaId) return;
+
+        if (confirm("¿Estás seguro de que deseas borrar el trazado de esta ruta?")) {
+             await guardarTrazadoEnBD(rutaSeleccionadaId, []);
+             mostrarAlerta("Trazado eliminado correctamente.", "success");
+        } else {
+            cargarTrazadoExistente(rutaSeleccionadaId);
+        }
+    });
+
+    // D) Trazado editado
+    map.on(L.Draw.Event.EDITED, async function (event) {
+         if (!rutaSeleccionadaId) return;
+         
+         const layers = event.layers;
+         let latlngs = [];
+         layers.eachLayer(function (layer) {
+             latlngs = layer.getLatLngs().map(coord => [coord.lat, coord.lng]);
+         });
+
+         if (latlngs.length > 0) {
+              await guardarTrazadoEnBD(rutaSeleccionadaId, latlngs);
+              mostrarAlerta("Trazado actualizado correctamente.", "success");
+         }
+    });
+
+
+    // --- 6. Funciones ---
+
+    async function cargarListadoRutas() {
+        try {
+            const response = await fetch('api/get_rutas.php');
+            const rutas = await response.json();
+            selectorRuta.innerHTML = '<option value="0" disabled selected>-- Selecciona una ruta para editar --</option>';
+            rutas.forEach(ruta => {
+                const option = document.createElement('option');
+                option.value = ruta.id_ruta;
+                option.textContent = ruta.descripcion;
+                selectorRuta.appendChild(option);
+            });
+        } catch (error) {
+            console.error("Error cargando rutas:", error);
+            mostrarAlerta("No se pudo cargar la lista de rutas.", "danger");
+        }
     }
-}
 
 
-/**
- * Muestra una alerta de Bootstrap (función igual que antes)
- */
-function mostrarAlertaAdmin(message, type) {
-    const alertContainer = document.getElementById('alert-container-admin');
-    if (alertContainer) {
-        const alertHTML = `
-            <div class="alert alert-${type} alert-dismissible fade show" role="alert">
-                ${message}
-                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Cerrar"></button>
+    /**
+     * Carga y dibuja el trazado. (CORREGIDA)
+     */
+    async function cargarTrazadoExistente(rutaId) {
+        drawnItems.clearLayers();
+        mostrarAlerta("Cargando trazado...", "info");
+
+        try {
+            const response = await fetch(`api/get_rutas.php?id=${rutaId}`);
+            const coordenadasCrudas = await response.json();
+
+            if (!Array.isArray(coordenadasCrudas)) {
+                 throw new Error("La API no devolvió un formato válido.");
+            }
+
+            // --- ¡CORRECCIÓN IMPORTANTE! ---
+            // Filtramos los datos para eliminar nulos o basura que rompe Leaflet
+            const coordenadasLimpias = coordenadasCrudas.filter(coord => {
+                // Debe ser un array, tener 2 elementos, y no ser nulos
+                return Array.isArray(coord) && coord.length === 2 && coord[0] != null && coord[1] != null;
+            });
+
+            if (coordenadasLimpias.length < 2) {
+                mostrarAlerta("Esta ruta no tiene un trazado válido guardado. ¡Dibuja uno nuevo!", "info");
+                return;
+            }
+            // --------------------------------
+
+            const polyline = L.polyline(coordenadasLimpias, {
+                color: '#0d6efd',
+                weight: 5,
+                opacity: 0.8
+            });
+
+            drawnItems.addLayer(polyline);
+            map.fitBounds(polyline.getBounds(), { padding: [20, 20] });
+            
+            const alertContainer = document.getElementById('alert-container-admin');
+            if (alertContainer) alertContainer.innerHTML = '';
+
+        } catch (error) {
+            console.error("Error cargando trazado:", error);
+            mostrarAlerta("Error al cargar el trazado. Revisa la consola.", "danger");
+        }
+    }
+
+
+    async function guardarTrazadoEnBD(rutaId, latlngsArray) {
+        mostrarAlerta("Guardando trazado...", "info");
+        try {
+            const datos = { id_ruta: rutaId, coordenadas: latlngsArray };
+            const response = await fetch('api/guardar_trazado.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(datos)
+            });
+            const textoRespuesta = await response.text();
+            let resultado;
+            try { resultado = JSON.parse(textoRespuesta); } catch (e) { throw new Error("Respuesta no válida del servidor."); }
+
+            if (resultado.success) {
+                const distancia = parseFloat(resultado.distancia_km).toFixed(2);
+                mostrarAlerta(`¡Trazado guardado! Distancia: <strong>${distancia} km</strong>.`, "success");
+                cargarTrazadoExistente(rutaId); 
+            } else {
+                throw new Error(resultado.error || "Error desconocido.");
+            }
+        } catch (error) {
+            console.error("Error al guardar:", error);
+            mostrarAlerta("Error al guardar: " + error.message, "danger");
+            cargarTrazadoExistente(rutaId);
+        }
+    }
+
+
+    function mostrarAlerta(mensaje, tipo) {
+        const alertContainer = document.getElementById('alert-container-admin');
+        if (!alertContainer) { console.error("No container for alerts."); return; }
+
+        let icono = 'info-circle';
+        if (tipo === 'success') icono = 'check-circle';
+        if (tipo === 'danger') icono = 'exclamation-circle';
+        if (tipo === 'warning') icono = 'exclamation-triangle';
+
+        alertContainer.innerHTML = `
+            <div class="alert alert-${tipo} alert-dismissible fade show shadow-sm d-flex align-items-center" role="alert">
+                <i class="fas fa-${icono} me-2 fs-5"></i>
+                <div>${mensaje}</div>
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
             </div>
         `;
-        alertContainer.innerHTML = alertHTML;
+
+        if (tipo !== 'danger') {
+            setTimeout(() => {
+                const alertElement = alertContainer.querySelector('.alert');
+                if (alertElement && typeof bootstrap !== 'undefined' && bootstrap.Alert) {
+                     new bootstrap.Alert(alertElement).close();
+                }
+            }, 5000);
+        }
     }
-}
+});

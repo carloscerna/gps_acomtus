@@ -3,71 +3,154 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Visor de Rutas - Acomtus</title>
+    <title>Historial de Recorridos - Acomtus</title>
     
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
-    
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
      
     <style>
-#mapa-historial {
-            height: 600px;
-            width: 100%;
-            border: 1px solid #ccc;
-            border-radius: 5px;
+        body {
+            background-color: #f4f6f9; /* Fondo gris claro moderno */
         }
-        .info-box-number { font-size: 1.5rem; }
+
+        /* Estilos para el mapa */
+        #mapa-historial {
+            height: 500px; /* Altura ajustada */
+            width: 100%;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1); /* Sombra suave */
+        }
+
+        /* --- ESTILOS MODERNOS PARA TARJETAS DE ESTADÍSTICAS --- */
+
+        /* Estilo base para la tarjeta */
+        .stat-card {
+            background-color: #fff;
+            border-radius: 15px; /* Bordes muy redondeados */
+            box-shadow: 0 6px 15px rgba(0,0,0,0.08); /* Sombra suave y elegante */
+            padding: 20px;
+            display: flex;
+            align-items: center;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            border: none; /* Sin bordes de línea */
+            height: 100%; /* Para que todas tengan la misma altura */
+        }
+
+        /* Efecto al pasar el mouse (opcional) */
+        .stat-card:hover {
+            transform: translateY(-5px); /* Se eleva un poquito */
+            box-shadow: 0 10px 20px rgba(0,0,0,0.12);
+        }
+
+        /* Contenedor del ícono */
+        .stat-icon-wrapper {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%; /* Ícono redondo */
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 28px;
+            color: #fff;
+            margin-right: 20px;
+            flex-shrink: 0; /* Evita que el ícono se aplaste */
+        }
+
+        /* Colores específicos para cada ícono con degradado */
+        .bg-gradient-blue { background: linear-gradient(45deg, #4099ff, #73b4ff); box-shadow: 0 5px 10px rgba(64, 153, 255, 0.3); }
+        .bg-gradient-green { background: linear-gradient(45deg, #2ed8b6, #59e0c5); box-shadow: 0 5px 10px rgba(46, 216, 182, 0.3); }
+        .bg-gradient-orange { background: linear-gradient(45deg, #FFB64D, #ffcb80); box-shadow: 0 5px 10px rgba(255, 182, 77, 0.3); }
+
+        /* Contenedor del texto */
+        .stat-content {
+            flex-grow: 1;
+        }
+
+        /* Título pequeño (ej. "Distancia Total") */
+        .stat-title {
+            font-size: 14px;
+            font-weight: 600;
+            color: #888; /* Gris suave */
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 5px;
+        }
+
+        /* Número grande (ej. "45.2 km") */
+        .stat-value {
+            font-size: 28px;
+            font-weight: 700;
+            color: #333; /* Negro suave */
+            line-height: 1.2;
+        }
+
+        /* Ajustes para el Card de Filtros */
+        .card-primary.shadow-sm {
+            border: none;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.08) !important;
+        }
+        .card-primary .card-header {
+            background-color: #0d6efd;
+            color: white;
+            border-top-left-radius: 12px;
+            border-top-right-radius: 12px;
+            font-weight: 600;
+        }
+        .form-control, .form-select {
+            border-radius: 8px;
+            padding: 10px;
+        }
+        #form-historial button {
+            border-radius: 8px;
+            padding: 10px;
+            font-weight: 600;
+        }
     </style>
 </head>
-<body class="bg-light">
+<body>
 
- <div class="content-wrapper">
-    <section class="content-header">
-        <div class="container-fluid">
-            <div class="row mb-2">
-                <div class="col-sm-6">
-                    <h1>Historial de Recorridos</h1>
-                </div>
-            </div>
+ <nav class="navbar navbar-dark bg-dark mb-4 shadow-sm">
+    <div class="container-fluid">
+      <span class="navbar-brand mb-0 h1"><i class="fas fa-bus me-2"></i>Acomtus - Historial</span>
+    </div>
+  </nav>
+
+ <div class="container mt-4 mb-5"> <div class="row mb-3">
+        <div class="col-12">
+            <h2 class="text-dark"><i class="fas fa-history me-2 text-primary"></i>Historial de Recorridos</h2>
+            <p class="text-muted">Consulta el trayecto y estadísticas de una unidad en un rango de fechas.</p>
         </div>
-    </section>
+    </div>
 
     <section class="content">
-        <div class="container-fluid">
+        <div class="container-fluid p-0">
             
-            <div class="card card-primary shadow-sm">
+            <div class="card card-primary shadow-sm mb-4">
                 <div class="card-header">
-                    <h3 class="card-title"><i class="fas fa-filter mr-2"></i>Filtros de Consulta</h3>
+                    <h5 class="card-title mb-0"><i class="fas fa-filter me-2"></i>Filtros de Consulta</h5>
                 </div>
                 <div class="card-body">
                     <form id="form-historial">
-                        <div class="row">
-                            <div class="col-md-4">
-                                <div class="form-group">
-                                    <label>Unidad de Transporte:</label>
-                                    <select id="select-unidad" class="form-control" required>
-                                        <option value="" disabled selected>-- Cargando unidades... --</option>
-                                    </select>
-                                </div>
+                        <div class="row g-3"> <div class="col-md-4">
+                                <label class="form-label fw-bold">Unidad de Transporte:</label>
+                                <select id="select-unidad" class="form-select" required>
+                                    <option value="" disabled selected>-- Cargando unidades... --</option>
+                                </select>
                             </div>
                             <div class="col-md-3">
-                                <div class="form-group">
-                                    <label>Desde:</label>
-                                    <input type="datetime-local" id="fecha-inicio" class="form-control" required>
-                                </div>
+                                <label class="form-label fw-bold">Desde:</label>
+                                <input type="datetime-local" id="fecha-inicio" class="form-control" required>
                             </div>
                             <div class="col-md-3">
-                                <div class="form-group">
-                                    <label>Hasta:</label>
-                                    <input type="datetime-local" id="fecha-fin" class="form-control" required>
-                                </div>
+                                <label class="form-label fw-bold">Hasta:</label>
+                                <input type="datetime-local" id="fecha-fin" class="form-control" required>
                             </div>
                             <div class="col-md-2 d-flex align-items-end">
-                                <div class="form-group w-100">
-                                    <button type="submit" class="btn btn-primary btn-block">
-                                        <i class="fas fa-search mr-1"></i> Consultar
-                                    </button>
-                                </div>
+                                <button type="submit" class="btn btn-primary btn-block w-100">
+                                    <i class="fas fa-search me-1"></i> Consultar
+                                </button>
                             </div>
                         </div>
                     </form>
@@ -76,46 +159,59 @@
 
             <div id="resultados-container" style="display: none;">
                 
-                <div class="row">
-                    <div class="col-12 col-sm-6 col-md-4">
-                        <div class="info-box">
-                            <span class="info-box-icon bg-info elevation-1"><i class="fas fa-route"></i></span>
-                            <div class="info-box-content">
-                                <span class="info-box-text">Distancia Total</span>
-                                <span class="info-box-number" id="stat-distancia">0 km</span>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="col-12 col-sm-6 col-md-4">
-                        <div class="info-box mb-3">
-                            <span class="info-box-icon bg-success elevation-1"><i class="fas fa-clock"></i></span>
-                            <div class="info-box-content">
-                                <span class="info-box-text">Puntos Registrados</span>
-                                <span class="info-box-number" id="stat-puntos">0</span>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="col-12 col-sm-6 col-md-4">
-                        <div class="info-box mb-3">
-                            <span class="info-box-icon bg-warning elevation-1"><i class="fas fa-tachometer-alt"></i></span>
-                            <div class="info-box-content">
-                                <span class="info-box-text">Velocidad Máx. Reg.</span>
-                                <span class="info-box-number" id="stat-velocidad">0 km/h</span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
+                <div class="row mb-4">
 
-                <div class="card">
+                    <div class="col-12 col-sm-6 col-xl-4 mb-3">
+                        <div class="stat-card">
+                            <div class="stat-icon-wrapper bg-gradient-blue">
+                                <i class="fas fa-route"></i>
+                            </div>
+                            <div class="stat-content">
+                                <div class="stat-title">Distancia Total</div>
+                                <div class="stat-value" id="stat-distancia">0 km</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="col-12 col-sm-6 col-xl-4 mb-3">
+                        <div class="stat-card">
+                            <div class="stat-icon-wrapper bg-gradient-green">
+                                <i class="fas fa-clock"></i>
+                            </div>
+                            <div class="stat-content">
+                                <div class="stat-title">Puntos GPS</div>
+                                <div class="stat-value" id="stat-puntos">0</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="col-12 col-sm-6 col-xl-4 mb-3">
+                        <div class="stat-card">
+                            <div class="stat-icon-wrapper bg-gradient-orange">
+                                <i class="fas fa-tachometer-alt"></i>
+                            </div>
+                            <div class="stat-content">
+                                <div class="stat-title">Velocidad Máx.</div>
+                                <div class="stat-value" id="stat-velocidad">0 km/h</div>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+                <div class="card border-0 shadow-sm rounded-4 overflow-hidden">
                     <div class="card-body p-0">
                         <div id="mapa-historial"></div>
                     </div>
                 </div>
             </div>
-
-        </div></section>
+            </div>
+    </section>
 </div>
+
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <script src="reporte_recorrido.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+
+<script src="reporte_recorrido.js"></script>
+
 </body>
 </html>

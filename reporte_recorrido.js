@@ -4,8 +4,15 @@ let polylineLayer = null;
 let markersLayer = new L.FeatureGroup();
 
 document.addEventListener('DOMContentLoaded', function() {
-    // 1. Inicializar Mapa
-    map = L.map('mapa-historial').setView([13.6929, -89.2182], 10); // Centrado en El Salvador
+// --- 0. CONFIGURACIÓN: UBICACIÓN POR DEFECTO (EMPRESA) ---
+    // ¡CAMBIA ESTOS VALORES POR LOS DE TU EMPRESA!
+    const COORD_EMPRESA_LAT = 13.977492366594602; // Latitud ejemplo
+    const COORD_EMPRESA_LNG = -89.58093094962483; // Longitud ejemplo
+    const ZOOM_INICIAL = 14; // Un zoom más cercano para ver la terminal
+
+    // --- 1. Inicializar el Mapa ---
+    // Usamos las variables que acabamos de crear
+    const map = L.map('mapa-historial').setView([COORD_EMPRESA_LAT, COORD_EMPRESA_LNG], ZOOM_INICIAL);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         attribution: '© OpenStreetMap'
     }).addTo(map);

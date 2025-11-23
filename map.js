@@ -9,8 +9,35 @@ const busIcon = L.icon({
     iconSize: [32, 32],
     iconAnchor: [16, 16]
 });
-// 1. Inicializar el mapa
-const map = L.map('mapa').setView([13.7000, -89.2200], 13);
+// --- 0. CONFIGURACIÓN: UBICACIÓN POR DEFECTO (EMPRESA) ---
+    // ¡CAMBIA ESTOS VALORES POR LOS DE TU EMPRESA!
+    const COORD_EMPRESA_LAT = 13.977492366594602; // Latitud ejemplo
+    const COORD_EMPRESA_LNG = -89.58093094962483; // Longitud ejemplo
+    const ZOOM_INICIAL = 14; // Un zoom más cercano para ver la terminal
+
+    // --- 1. Inicializar el Mapa ---
+    // Usamos las variables que acabamos de crear
+    const map = L.map('mapa').setView([COORD_EMPRESA_LAT, COORD_EMPRESA_LNG], ZOOM_INICIAL);
+
+// --- ¡NUEVO! MARCADOR DE LA EMPRESA ---
+
+// 1. Definir cómo se ve el ícono
+const iconoEmpresa = L.icon({
+    iconUrl: 'img/logo_acomtus.png', // <--- ¡CAMBIA ESTO POR LA RUTA REAL DE TU IMAGEN!
+    
+    iconSize:     [38, 38], // Tamaño de la imagen en pixeles [ancho, alto]
+    iconAnchor:   [19, 38], // Punto de la imagen que toca el mapa (mitad ancho, altura completa para que la punta toque)
+    popupAnchor:  [0, -38]  // Donde se abre el popup relativo al anchor
+    // Si tu imagen es cuadrada y quieres el centro exacto, usa: iconAnchor: [19, 19]
+});
+
+// 2. Poner el marcador en el mapa
+L.marker([COORD_EMPRESA_LAT, COORD_EMPRESA_LNG], {icon: iconoEmpresa})
+    .addTo(map)
+    .bindPopup("<b>Acomtus Central</b><br>Base de Operaciones")
+    .openPopup(); // Opcional: que arranque con el popup abierto
+
+// --------------------------------------
 
 // 2. Añadir la capa base del mapa
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
