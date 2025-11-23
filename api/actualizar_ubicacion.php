@@ -57,10 +57,6 @@ $id_transporte = $datos['id_transporte'];
 $ruta_id = $datos['ruta_id'];
 $lat = $datos['lat'];
 $lng = $datos['lng'];
-<<<<<<< HEAD
-=======
-// Si tu app manda velocidad, úsala. Si no, 0.
->>>>>>> a2adaacc698ce96c8f6107ade00d743a066a6024
 // --- CAMBIO AQUÍ ---
 // Asegurarnos de que sea un número flotante (decimal), si no viene, es 0.0
 $velocidad = isset($datos['speed']) ? floatval($datos['speed']) : 0.0; 
